@@ -1,14 +1,17 @@
 from config import Config
+from flask import Flask, render_template
 
-# 只在直接运行时导入Flask
+app = Flask(__name__)
+app.config.from_object(Config)
+
+# 导入并注册API蓝图
+from app.api.routes import api_bp
+app.register_blueprint(api_bp, url_prefix='/api')
+
+# 主页路由
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 if __name__ == '__main__':
-    from flask import Flask
-    from app.api.routes import api_bp
-    
-    app = Flask(__name__)
-    app.config.from_object(Config)
-    
-    # 注册API路由
-    app.register_blueprint(api_bp, url_prefix='/api')
-    
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=8080, debug=True)

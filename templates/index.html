@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型真实性检测系统 - Model Authenticity Detector</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航 -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <span class="logo">🤖</span>
+                <h1>模型真实性检测系统</h1>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-tab="single">
+                    <span class="nav-icon">🔍</span>
+                    <span>单次测试</span>
+                </li>
+                <li class="nav-item" data-tab="batch">
+                    <span class="nav-icon">📊</span>
+                    <span>批量测试</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            <!-- 单次测试面板 -->
+            <div class="tab-panel active" id="single-panel">
+                <div class="panel-header">
+                    <h2>🔍 单次模型测试</h2>
+                    <p class="panel-desc">测试单个模型的真实性和Token使用情况</p>
+                </div>
+
+                <div class="content-grid">
+                    <div class="form-card">
+                        <form id="singleTestForm">
+                            <div class="form-group">
+                                <label for="singleApiUrl">API URL <span class="required">*</span></label>
+                                <input type="url" id="singleApiUrl" name="api_url" 
+                                       placeholder="https://api.example.com/v1/chat/completions" required>
+                                <small class="help-text">输入API端点地址</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="singleApiKey">API Key <span class="required">*</span></label>
+                                <div class="input-group">
+                                    <input type="password" id="singleApiKey" name="api_key" 
+                                           placeholder="sk-..." required>
+                                    <button type="button" class="toggle-visibility" id="toggleSingleKey">
+                                        👁️
+                                    </button>
+                                </div>
+                                <small class="help-text">输入您的API密钥（不会保存）</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="singleModel">模型名称 <span class="required">*</span></label>
+                                <div style="margin-bottom: 0.5rem;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="singleFetchModelsBtn">
+                                        <span class="btn-text">🔍 获取可用模型</span>
+                                        <span class="btn-loading" style="display: none;">
+                                            <span class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></span> 获取中...
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="input-group">
+                                    <select id="singleModel" name="model">
+                                        <option value="">选择或输入模型...</option>
+                                    </select>
+                                    <input type="text" id="singleModelCustom" placeholder="或输入自定义模型名" style="display: none;">
+                                </div>
+                                <small class="help-text">先点击"获取可用模型"，然后从列表中选择</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="singlePrompt">测试提示词（可选）</label>
+                                <textarea id="singlePrompt" name="test_prompt" rows="3"
+                                          placeholder="Hello, please introduce yourself."></textarea>
+                                <small class="help-text">留空将使用默认提示词</small>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary" id="singleTestBtn">
+                                    <span class="btn-text">开始测试</span>
+                                    <span class="btn-loading" style="display: none;">
+                                        <span class="spinner"></span> 测试中...
+                                    </span>
+                                </button>
+                                <button type="reset" class="btn btn-secondary">重置</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="result-card" id="singleResultCard" style="display: none;">
+                        <div class="result-header">
+                            <h3>📋 测试结果</h3>
+                            <span class="test-id" id="singleTestId"></span>
+                        </div>
+                        <div id="singleResultContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聚合站检测面板 -->
+            <div class="tab-panel" id="batch-panel">
+                <div class="panel-header">
+                    <h2>🔗 聚合站检测</h2>
+                    <p class="panel-desc">自动获取模型列表，检测API聚合站的模型真实性</p>
+                </div>
+
+                <div class="content-grid">
+                    <div class="form-card">
+                        <form id="batchTestForm">
+                            <div class="form-group">
+                                <label for="batchApiUrl">API URL <span class="required">*</span></label>
+                                <input type="url" id="batchApiUrl" name="api_url" 
+                                       placeholder="https://api.example.com/v1/chat/completions" required>
+                                <small class="help-text">输入API端点地址</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="batchApiKey">API Key <span class="required">*</span></label>
+                                <div class="input-group">
+                                    <input type="password" id="batchApiKey" name="api_key" 
+                                           placeholder="sk-..." required>
+                                    <button type="button" class="toggle-visibility" id="toggleBatchKey">
+                                        👁️
+                                    </button>
+                                </div>
+                                <small class="help-text">输入您的API密钥</small>
+                            </div>
+
+                            <div class="form-group" style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn btn-primary" id="fetchModelsBtn" style="flex: 1;">
+                                    <span class="btn-text">🔍 第一步：获取可用模型</span>
+                                    <span class="btn-loading" style="display: none;">
+                                        <span class="spinner"></span> 获取中...
+                                    </span>
+                                </button>
+                            </div>
+
+                            <div class="form-group" id="modelSelectionGroup" style="display: none;">
+                                <label>选择要测试的模型</label>
+                                <div class="model-selector" id="modelSelector">
+                                    <div class="model-selector-header">
+                                        <button type="button" class="btn btn-small" id="selectAllModels">全选</button>
+                                        <button type="button" class="btn btn-small" id="clearAllModels">清除</button>
+                                    </div>
+                                    <div class="model-list" id="modelList"></div>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="testConfigGroup" style="display: none;">
+                                <label for="numTests">每个模型测试次数</label>
+                                <input type="number" id="numTests" name="num_tests" value="1" min="1" max="10">
+                            </div>
+
+                            <div class="form-actions" id="startTestGroup" style="display: none;">
+                                <button type="button" class="btn btn-primary" id="startTestBtn">
+                                    <span class="btn-text">🚀 第二步：开始检测</span>
+                                    <span class="btn-loading" style="display: none;">
+                                        <span class="spinner"></span> 检测中...
+                                    </span>
+                                </button>
+                                <button type="button" class="btn btn-secondary" id="resetFormBtn">重置</button>
+                            </div>
+                        </form>
+
+                        <div id="progressSection" style="display: none; margin-top: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem;">检测进度</h4>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
+                            </div>
+                            <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; font-size: 0.9rem;">
+                                <span id="progressText">准备中...</span>
+                                <span id="progressPercent">0%</span>
+                            </div>
+                            <div id="progressLog" style="margin-top: 1rem; max-height: 200px; overflow-y: auto; background: var(--bg-color); padding: 1rem; border-radius: var(--radius); font-size: 0.85rem;"></div>
+                        </div>
+                    </div>
+
+                    <div class="result-card" id="batchResultCard" style="display: none;">
+                        <div class="result-header">
+                            <h3>📋 检测结果</h3>
+                            <span class="test-id" id="batchTestId"></span>
+                        </div>
+                        <div id="batchResultContent"></div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
