@@ -135,6 +135,14 @@ python app.py
 - Token一致性检测已移除，改为由用户自行核对
 - 生图/生视频模型会被自动过滤，仅测试生文模型
 
+## 更新日志
+
+### 2026-04-04
+- **修复**: 修改聚合站检测超时时间为15秒，超过15秒无响应视为不通
+- **优化**: 单次测试结果中添加醒目的"模型返回内容"板块
+- **更新**: 单次模型测试默认提示词改为更直接的身份质询
+- **修复**: 确保输入框支持文本选择和键盘快捷键（Ctrl+A等）
+
 ## 许可证
 
 MIT License
@@ -277,6 +285,14 @@ The system supports models from many major providers, including but not limited 
 - As suppliers update their APIs, identification rules may need regular maintenance
 - Token consistency checking has been removed, replaced by user self-verification
 - Image/video models are automatically filtered, only text models are tested
+
+## Changelog
+
+### 2026-04-04 (Beijing Time)
+- **Fix**: Changed aggregator detection timeout to 15 seconds, no response after 15 seconds considered as unavailable
+- **Improvement**: Added prominent "Model Response Content" section in single test results
+- **Update**: Changed default prompt for single model test to more direct identity inquiry
+- **Fix**: Ensure input fields support text selection and keyboard shortcuts (Ctrl+A, etc.)
 
 ## License
 

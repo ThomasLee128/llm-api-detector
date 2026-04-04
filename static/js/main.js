@@ -15,7 +15,34 @@ document.addEventListener('DOMContentLoaded', () => {
     initHistoryPanel();
     initStatisticsPanel();
     initModal();
+    initKeyboardShortcuts();
 });
+
+function initKeyboardShortcuts() {
+    // 确保所有输入框和文本区域支持文本选择和键盘快捷键
+    const ensureInputFunctionality = () => {
+        document.querySelectorAll('input[type="text"], input[type="url"], input[type="password"], textarea').forEach(element => {
+            // 移除可能存在的内联样式阻止选择
+            element.style.webkitUserSelect = 'text';
+            element.style.MozUserSelect = 'text';
+            element.style.msUserSelect = 'text';
+            element.style.userSelect = 'text';
+            
+            // 确保没有只读属性
+            if (!element.hasAttribute('readonly')) {
+                element.removeAttribute('readonly');
+            }
+        });
+    };
+    
+    // 立即执行
+    ensureInputFunctionality();
+    
+    // 也在一小段延迟后再次执行，确保所有元素都已加载
+    setTimeout(ensureInputFunctionality, 100);
+    
+    console.log('Keyboard shortcuts initialized');
+}
 
 function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
@@ -315,10 +342,12 @@ function displaySingleTestResult(result) {
             </div>
         ` : ''}
         ${result.analysis?.response_content ? `
-            <div style="margin-top: 1.5rem;">
-                <div class="info-label" style="margin-bottom: 0.5rem;">响应内容</div>
-                <div style="background: var(--bg-color); padding: 1rem; border-radius: var(--radius); font-size: 0.9rem; white-space: pre-wrap;">
-                    ${escapeHtml(result.analysis.response_content)}
+            <div style="margin-top: 1.5rem; border-top: 2px solid var(--border-color); padding-top: 1.5rem;">
+                <div class="info-label" style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600;">💬 模型返回内容</div>
+                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius); padding: 1.25rem;">
+                    <div style="font-size: 0.95rem; line-height: 1.8; white-space: pre-wrap; color: #166534;">
+                        ${escapeHtml(result.analysis.response_content)}
+                    </div>
                 </div>
             </div>
         ` : ''}
