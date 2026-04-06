@@ -361,43 +361,85 @@ class EnhancedModelDetector:
         Returns:
             可用模型列表
         """
-        models_endpoint = self._get_models_endpoint(api_url)
+        # 生成多种可能的 models 端点 URL
+        def generate_possible_urls(base_url):
+            urls = []
+            base_url = base_url.strip()
+            
+            # 如果已经是完整的 models 端点
+            if '/models' in base_url:
+                urls.append(base_url)
+            
+            # 如果有 /chat/completions，去掉它
+            if '/chat/completions' in base_url:
+                base = base_url.split('/chat/completions')[0]
+                urls.append(f"{base}/v1/models")
+                urls.append(f"{base}/models")
+            
+            # 如果以 /v1 结尾
+            if base_url.endswith('/v1'):
+                urls.append(f"{base_url}/models")
+            
+            # 如果是基础域名，尝试多种组合
+            if '/v1' not in base_url and '/models' not in base_url:
+                if base_url.endswith('/'):
+                    base_url = base_url[:-1]
+                urls.append(f"{base_url}/v1/models")
+                urls.append(f"{base_url}/models")
+            
+            # 如果有 /v1 但不是结尾
+            if '/v1' in base_url and not base_url.endswith('/v1') and '/models' not in base_url:
+                v1_pos = base_url.find('/v1')
+                base = base_url[:v1_pos + 3]
+                urls.append(f"{base}/models")
+            
+            # 去重
+            unique_urls = []
+            seen = set()
+            for url in urls:
+                if url not in seen:
+                    seen.add(url)
+                    unique_urls.append(url)
+            
+            return unique_urls
         
-        if not models_endpoint:
-            return []
+        possible_urls = generate_possible_urls(api_url)
         
-        try:
-            headers = {
-                'Authorization': f'Bearer {api_key}'
-            }
-            
-            response = requests.get(models_endpoint, headers=headers, timeout=15)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if 'data' in data and isinstance(data['data'], list):
-                models = []
-                for model in data['data']:
-                    if isinstance(model, dict) and 'id' in model:
-                        model_id = model['id']
-                        # 过滤生图/生视频模型
-                        if self._is_image_video_model(model_id):
-                            continue
-                        model_info = {
-                            'id': model_id,
-                            'name': model.get('id', model.get('name', '')),
-                            'description': model.get('description', ''),
-                            'created': model.get('created'),
-                            'owned_by': model.get('owned_by', '')
-                        }
-                        models.append(model_info)
-                return models
-            
-            return []
-            
-        except Exception as e:
-            return []
+        headers = {
+            'Authorization': f'Bearer {api_key}'
+        }
+        
+        # 尝试每一个可能的 URL
+        for models_endpoint in possible_urls:
+            try:
+                response = requests.get(models_endpoint, headers=headers, timeout=15)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    if 'data' in data and isinstance(data['data'], list):
+                        models = []
+                        for model in data['data']:
+                            if isinstance(model, dict) and 'id' in model:
+                                model_id = model['id']
+                                # 过滤生图/生视频模型
+                                if self._is_image_video_model(model_id):
+                                    continue
+                                model_info = {
+                                    'id': model_id,
+                                    'name': model.get('id', model.get('name', '')),
+                                    'description': model.get('description', ''),
+                                    'created': model.get('created'),
+                                    'owned_by': model.get('owned_by', '')
+                                }
+                                models.append(model_info)
+                        if models:
+                            return models
+                
+            except Exception:
+                continue
+        
+        return []
     
     def _is_image_video_model(self, model_id: str) -> bool:
         """
@@ -457,13 +499,31 @@ class EnhancedModelDetector:
     
     def _get_models_endpoint(self, api_url: str) -> Optional[str]:
         """根据chat/completions端点获取models端点"""
+        api_url = api_url.strip()
+        
         # 尝试从chat/completions推导
         if '/chat/completions' in api_url:
             base_url = api_url.split('/chat/completions')[0]
             return f"{base_url}/models"
         
-        # 其他模式
-        return None
+        # 如果已经是 /models 端点，直接返回
+        if '/models' in api_url:
+            return api_url
+        
+        # 如果是以 /v1 结尾，加上 /models
+        if api_url.endswith('/v1'):
+            return f"{api_url}/models"
+        
+        # 如果是基础域名，先尝试加 /v1/models
+        if '/v1' not in api_url:
+            if api_url.endswith('/'):
+                api_url = api_url[:-1]
+            return f"{api_url}/v1/models"
+        
+        # 其他情况，直接在后面加 /models
+        if api_url.endswith('/'):
+            api_url = api_url[:-1]
+        return f"{api_url}/models"
     
     def detect_model(self, api_url: str, api_key: str, model: str, 
                     test_prompt: str = None, strategy: str = 'full') -> DetectionResult:
@@ -881,21 +941,41 @@ class EnhancedModelDetector:
         if requested_model.lower() == detected_model.lower():
             return True
         
-        # 模糊匹配 - 检查核心模型标识
+        # 模糊匹配 - 更加宽松的匹配策略
         requested_lower = requested_model.lower()
         detected_lower = detected_model.lower()
         
-        # 检查是否是高度相似的情况（名称前缀相同，但有后缀）
-        # 例如：GPT-5.4 vs gpt-5.4-2026-03-05-short-api-ev3
-        # 这种情况让用户自行分辨，我们标记为匹配（不标记为严重问题）
-        # 检查核心部分是否匹配
+        # 策略1: 检查请求模型是否以检测到的模型开头（聚合站加后缀的情况）
+        # 例如: claude-sonnet-4-6-cc vs claude-sonnet-4-6
+        if requested_lower.startswith(detected_lower):
+            return True
         
-        # 提取核心模型名称（去掉日期、版本后缀等）
+        # 策略2: 检查检测到的模型是否以请求模型开头
+        if detected_lower.startswith(requested_lower):
+            return True
+        
+        # 策略3: 检查是否一个包含另一个（去掉后缀的情况）
+        def normalize_for_containment(name):
+            # 去掉常见的后缀标记
+            suffixes = ['-cc', '-switch', '-api', '-short', '-long', '-fast', '-slow', '-temp', '-cache']
+            result = name.lower()
+            for suffix in suffixes:
+                if result.endswith(suffix):
+                    result = result[:-len(suffix)]
+            return result
+        
+        req_norm = normalize_for_containment(requested_lower)
+        det_norm = normalize_for_containment(detected_lower)
+        
+        if req_norm in det_norm or det_norm in req_norm:
+            return True
+        
+        # 策略4: 提取核心模型名称进行匹配
         def get_core_name(name):
             # 尝试匹配主要模型标识
             patterns = [
                 r'^(gpt-[0-9]+(\.[0-9]+)?)',  # gpt-4, gpt-4o, gpt-5, gpt-5.4
-                r'^(claude-[a-z0-9.-]+)',  # claude-opus, claude-3.5-sonnet
+                r'^(claude-[a-z0-9.-]+)',  # claude-opus, claude-3.5-sonnet, claude-sonnet-4-6
                 r'^(gemini-[0-9.]+-[a-z]+)',  # gemini-2.0-pro, gemini-2.5-flash
                 r'^(glm-[0-9]+)',  # glm-4, glm-5
                 r'^(deepseek-[a-z0-9.]+)',  # deepseek-v3.2, deepseek-chat
@@ -914,62 +994,56 @@ class EnhancedModelDetector:
         requested_core = get_core_name(requested_lower)
         detected_core = get_core_name(detected_lower)
         
-        # 如果核心名称匹配，认为是高度相似，让用户自行分辨，标记为匹配
-        if requested_core and detected_core and requested_core in detected_core:
-            return True
+        # 如果核心名称匹配，认为是高度相似
+        if requested_core and detected_core:
+            if requested_core in detected_core or detected_core in requested_core:
+                return True
         
-        # 小米/MiMo
-        if 'mimo' in requested_lower and 'mimo' in detected_lower:
-            return True
-        
-        # Step系列
-        if 'step-3.5' in requested_lower and 'step-3.5' in detected_lower:
-            return True
-        
-        # MiniMax
-        if ('m2.7' in requested_lower or 'm2.5' in requested_lower) and \
-           ('m2.7' in detected_lower or 'm2.5' in detected_lower):
-            return True
-        
-        # DeepSeek
-        if 'deepseek-v3.2' in requested_lower and 'deepseek-v3.2' in detected_lower:
-            return True
-        if 'deepseek-chat' in requested_lower and 'deepseek-chat' in detected_lower:
-            return True
-        
-        # GLM系列
-        if 'glm-5' in requested_lower and 'glm-5' in detected_lower:
-            return True
+        # 策略5: 逐个关键词匹配（更宽松）
+        # Claude系列
+        if 'claude' in requested_lower and 'claude' in detected_lower:
+            # 检查是否是同一个系列
+            if ('opus' in requested_lower and 'opus' in detected_lower) or \
+               ('sonnet' in requested_lower and 'sonnet' in detected_lower) or \
+               ('haiku' in requested_lower and 'haiku' in detected_lower):
+                return True
+            # 检查版本号
+            if '4-6' in requested_lower and '4-6' in detected_lower:
+                return True
+            if '3-5' in requested_lower and '3-5' in detected_lower:
+                return True
         
         # GPT系列
-        if 'gpt-4o' in requested_lower and 'gpt-4o' in detected_lower:
-            return True
-        if 'gpt-4' in requested_lower and 'gpt-4' in detected_lower and 'gpt-4o' not in requested_lower:
-            return True
-        if 'gpt-3.5' in requested_lower and 'gpt-3.5' in detected_lower:
-            return True
-        if 'gpt-5' in requested_lower and 'gpt-5' in detected_lower:
-            return True
-        
-        # Claude系列
-        if 'claude-opus' in requested_lower and 'claude-opus' in detected_lower:
-            return True
-        if 'claude-3.5-sonnet' in requested_lower and 'claude-3.5-sonnet' in detected_lower:
-            return True
-        if 'claude-3-sonnet' in requested_lower and 'claude-3-sonnet' in detected_lower:
-            return True
-        if 'claude-3-haiku' in requested_lower and 'claude-3-haiku' in detected_lower:
-            return True
+        if 'gpt' in requested_lower and 'gpt' in detected_lower:
+            if ('4o' in requested_lower and '4o' in detected_lower) or \
+               ('4' in requested_lower and '4' in detected_lower and '4o' not in requested_lower) or \
+               ('3.5' in requested_lower and '3.5' in detected_lower) or \
+               ('5' in requested_lower and '5' in detected_lower):
+                return True
         
         # Gemini系列
-        if 'gemini-2.0' in requested_lower and 'gemini-2.0' in detected_lower:
-            return True
-        if 'gemini-1.5' in requested_lower and 'gemini-1.5' in detected_lower:
-            return True
-        if 'gemini-2.5' in requested_lower and 'gemini-2.5' in detected_lower:
-            return True
-        if 'gemini-3.1' in requested_lower and 'gemini-3.1' in detected_lower:
-            return True
+        if 'gemini' in requested_lower and 'gemini' in detected_lower:
+            if ('2.0' in requested_lower and '2.0' in detected_lower) or \
+               ('1.5' in requested_lower and '1.5' in detected_lower) or \
+               ('2.5' in requested_lower and '2.5' in detected_lower) or \
+               ('3.1' in requested_lower and '3.1' in detected_lower):
+                return True
+        
+        # 其他模型的宽松匹配
+        keyword_pairs = [
+            ('mimo', 'mimo'),
+            ('step-3.5', 'step-3.5'),
+            ('m2.7', 'm2.7'),
+            ('m2.5', 'm2.5'),
+            ('deepseek-v3.2', 'deepseek-v3.2'),
+            ('deepseek-chat', 'deepseek-chat'),
+            ('glm-5', 'glm-5'),
+            ('glm-4', 'glm-4'),
+        ]
+        
+        for req_key, det_key in keyword_pairs:
+            if req_key in requested_lower and det_key in detected_lower:
+                return True
         
         return False
     

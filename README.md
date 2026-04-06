@@ -8,7 +8,7 @@
 
 对于vibe coding乃至全领域的AI应用而言，模型能力是一个与输出效果挂钩的核心指标。本项目旨在消除任何形式的模型降级，确保AI API使用的透明度和可靠性。
 
-我们面向中国用户的API平台为api.spiritgpu.com，有需要的用户可以关注我们。对于有使用需求的境外用户，我们也将在产品稳定运行后推出境外版本。
+我们[智灵 AI](https://serverless.datastone.cn/) 同时运营着[智灵 AI](https://serverless.datastone.cn/) ——一个 GPU 分时租赁平台和[智灵 API](https://api.spiritgpu.com/) ——一个 API 聚合站点。我坚定认为将自己作为平台使用者去深度使用自己产品才是最佳的产品改进方式。对于有使用需求的境外用户，我们也将在产品稳定运行后推出境外版本。
 
 ## 项目概述
 
@@ -137,11 +137,17 @@ python app.py
 
 ## 更新日志
 
+### 2026-04-07
+- 🎯 大幅优化模型匹配逻辑，支持聚合站带后缀的模型名（如 `-cc`、`-ccswitch`）
+- ✨ 新增 API URL 智能补全，支持只输入基础域名（如 `https://api.spiritgpu.com`）
+- 🔧 修复获取模型列表问题，支持多种 `/models` 端点格式
+- 📝 更新 README 文档，介绍 [Spirit AI](https://serverless.datastone.cn/) 和 [Spirit API](https://api.spiritgpu.com/)
+
 ### 2026-04-04
-- **修复**: 修改聚合站检测超时时间为15秒，超过15秒无响应视为不通
-- **优化**: 单次测试结果中添加醒目的"模型返回内容"板块
-- **更新**: 单次模型测试默认提示词改为更直接的身份质询
-- **修复**: 确保输入框支持文本选择和键盘快捷键（Ctrl+A等）
+- ⏱️ 修改聚合站检测超时时间为 15 秒
+- 💬 单次测试结果添加醒目的"模型返回内容"板块
+- 🎨 优化默认提示词为更直接的身份质询
+- ⌨️ 确保输入框支持文本选择和键盘快捷键
 
 ## 许可证
 
@@ -159,7 +165,7 @@ Driven by this discovery, I developed this project through "vibe coding" to addr
 
 For vibe coding and the entire AI application domain, model capability is a core indicator directly linked to output quality. This project aims to eliminate any form of model downgrading, ensuring transparency and reliability in AI API usage.
 
-Our API platform for Chinese users is api.spiritgpu.com, and we plan to launch an international version once the product stabilizes.
+Our [Spirit AI](https://serverless.datastone.cn/) operates both [Spirit AI](https://serverless.datastone.cn/) — a GPU time-sharing rental platform and [Spirit API](https://api.spiritgpu.com/) — an API aggregation site. I firmly believe that deeply using our own products as platform users is the best way to improve our products. We plan to launch an international version once the product stabilizes.
 
 ## Project Overview
 
@@ -278,6 +284,10 @@ The system supports models from many major providers, including but not limited 
 ### 4. Token Usage Statistics
 - Record Prompt Token, Completion Token, and Total Token
 - Highlight display for users to verify with platform billing
+
+### 5. Continuous Updates and Maintenance
+- Detection methods will be continuously updated to ensure stable and reliable model services provided by [Spirit API](https://api.spiritgpu.com/)
+- Identification rules will be regularly maintained and optimized as suppliers update their APIs
 
 ## Notes
 

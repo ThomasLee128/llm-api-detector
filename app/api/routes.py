@@ -11,10 +11,52 @@ detector = EnhancedModelDetector()
 db = DatabaseManager()
 
 
+def normalize_api_url(api_url: str) -> str:
+    """
+    规范化 API URL，自动补全常见的端点
+    
+    Args:
+        api_url: 用户输入的 URL
+        
+    Returns:
+        规范化后的完整 URL
+    """
+    if not api_url:
+        return api_url
+    
+    api_url = api_url.strip()
+    
+    # 如果已经是完整的 chat/completions 端点，直接返回
+    if '/chat/completions' in api_url:
+        return api_url
+    
+    # 处理基础域名的情况
+    # 例如: https://api.spiritgpu.com -> https://api.spiritgpu.com/v1/chat/completions
+    # 例如: https://api.spiritgpu.com/ -> https://api.spiritgpu.com/v1/chat/completions
+    # 例如: https://api.spiritgpu.com/v1 -> https://api.spiritgpu.com/v1/chat/completions
+    
+    # 去掉末尾的斜杠
+    if api_url.endswith('/'):
+        api_url = api_url[:-1]
+    
+    # 如果已经有 /v1，只需要加 /chat/completions
+    if api_url.endswith('/v1'):
+        return f"{api_url}/chat/completions"
+    
+    # 如果没有 /v1，加上 /v1/chat/completions
+    if '/v1' not in api_url:
+        return f"{api_url}/v1/chat/completions"
+    
+    return api_url
+
+
 def run_batch_test(task_id: str, api_url: str, api_key: str, models: list, num_tests: int):
     """在后台线程中运行批量测试"""
     try:
         task_manager.start_task(task_id, '开始执行检测...')
+        
+        # 规范化 API URL
+        api_url = normalize_api_url(api_url)
         
         # 定义进度回调
         def progress_callback(progress: float, message: str):
@@ -59,6 +101,9 @@ def detect_single_model():
         if not api_url or not api_key or not model:
             return jsonify({'error': 'Missing api_url, api_key or model'}), 400
         
+        # 规范化 API URL
+        api_url = normalize_api_url(api_url)
+        
         # 执行检测
         result = detector.detect_model(api_url, api_key, model, test_prompt, strategy)
         result_dict = asdict(result)
@@ -95,6 +140,9 @@ def start_batch_test():
         
         if not models or len(models) == 0:
             return jsonify({'error': 'No models selected'}), 400
+        
+        # 规范化 API URL
+        api_url = normalize_api_url(api_url)
         
         # 创建任务
         task_id = task_manager.create_task()
@@ -182,6 +230,7 @@ def fetch_available_models():
         if not api_url or not api_key:
             return jsonify({'error': 'Missing api_url or api_key'}), 400
         
+        # 直接用 detector 来获取模型，它内部会尝试多种 URL
         models = detector.fetch_available_models(api_url, api_key)
         
         return jsonify({
